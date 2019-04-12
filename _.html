@@ -1,0 +1,419 @@
+<!doctype html>
+<html>
+  <body>
+	<p id="debug">debug text</p>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<button id = "ButtonUp">Up</button>
+	<p></p>
+	&nbsp;&nbsp;<button id = "ButtonLeft">Left</button><button id = "ButtonRight">Right</button>
+	<p></p>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<button id = "ButtonDown">Down</button>
+	<p></p>
+	<button id = "ButtonToogle">Toogle Movement (0)</button>
+	<p></p>
+	<canvas width="570" height="570" id="my_canvas"></canvas>
+	<script id="vertex-shader" type="x-shader/x-vertex">
+		attribute vec3 position;
+		uniform mat4 Pmatrix;
+		uniform mat4 Vmatrix;
+		uniform mat4 Mmatrix;
+		attribute vec3 color;
+		varying vec3 vColor;
+		void main(void)
+		{
+			gl_Position = Pmatrix*Vmatrix*Mmatrix*vec4(position, 1.);
+			vColor = color;
+		}
+	</script>
+	<script id="fragment-shader" type="x-shader/x-fragment">
+		precision mediump float;
+		varying vec3 vColor;
+		void main(void)
+		{
+			gl_FragColor = vec4(vColor, 1.);
+		}
+	</script>
+	<script id="main-program" type="text/javascript">
+		var dbg=document.getElementById('debug');
+		var canvas=document.getElementById('my_canvas');
+		/*=================== Initialization =========================*/
+		gl=canvas.getContext('webgl');
+		var posisi=[];
+		var warna=[];
+		for(var i=-1;++i<12288;)
+		{
+			posisi.push(0<=i&&i<4096?1:0);
+			posisi.push(4096<=i&&i<8192?1:0);
+			posisi.push(8192<=i&&i<12288?1:0);
+			var j=i%4096;
+			warna.push(1.0/15.0*(Math.floor(j/256)%16));
+			warna.push(1.0/15.0*(Math.floor(j/16)%16));
+			warna.push(1.0/15.0*(Math.floor(j/1)%16));
+		}
+		var posisi_buf=gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER,posisi_buf);
+		gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(posisi),gl.STATIC_DRAW);
+		var warna_buf=gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER,warna_buf);
+		gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(warna),gl.STATIC_DRAW);
+		var index_buf=gl.createBuffer();
+		var vshader_code=document.getElementById('vertex-shader').innerHTML;
+		var vshader=gl.createShader(gl.VERTEX_SHADER);
+		gl.shaderSource(vshader,vshader_code);
+		gl.compileShader(vshader);
+		var fshader_code=document.getElementById('fragment-shader').innerHTML;
+		var fshader=gl.createShader(gl.FRAGMENT_SHADER);
+		gl.shaderSource(fshader,fshader_code);
+		gl.compileShader(fshader);
+		var shader_prog=gl.createProgram();
+		gl.attachShader(shader_prog, vshader);
+		gl.attachShader(shader_prog, fshader);
+		gl.linkProgram(shader_prog);
+		var Pmatrix=gl.getUniformLocation(shader_prog,"Pmatrix");
+		var Vmatrix=gl.getUniformLocation(shader_prog,"Vmatrix");
+		var Mmatrix=gl.getUniformLocation(shader_prog,"Mmatrix");
+		gl.bindBuffer(gl.ARRAY_BUFFER,posisi_buf);
+		var posisi_ptr=gl.getAttribLocation(shader_prog,"position");
+		gl.vertexAttribPointer(posisi_ptr,3,gl.FLOAT,false,0,0) ;
+		gl.enableVertexAttribArray(posisi_ptr);
+		gl.bindBuffer(gl.ARRAY_BUFFER,warna_buf);
+		var warna_ptr= gl.getAttribLocation(shader_prog,"color");
+		gl.vertexAttribPointer(warna_ptr,3,gl.FLOAT,false,0,0);
+		gl.enableVertexAttribArray(warna_ptr);
+		gl.useProgram(shader_prog);
+		/*==================== Transformation Function ====================*/
+		function get_projection(angle,a,zMin,zMax)
+		{
+			var ang=Math.tan((angle*.5)*Math.PI/180);
+			return[0.5/ang, 0        ,                         0,  0,
+			       0      , 0.5*a/ang,                         0,  0,
+			       0      , 0        ,  -(zMax+zMin)/(zMax-zMin), -1,
+			       0      , 0        ,(-2*zMax*zMin)/(zMax-zMin),  0];
+		}
+		function rotateZ(m,angle)
+		{
+			var c=Math.cos(angle);
+			var s=Math.sin(angle);
+			var mv0=m[0],mv4=m[4],mv8=m[8];
+			m[0]=c*m[0]-s*m[1];
+			m[4]=c*m[4]-s*m[5];
+			m[8]=c*m[8]-s*m[9];
+			m[1]=c*m[1]+s*mv0;
+			m[5]=c*m[5]+s*mv4;
+			m[9]=c*m[9]+s*mv8;
+		}
+		function rotateX(m,angle)
+		{
+			var c=Math.cos(angle);
+			var s=Math.sin(angle);
+			var mv1=m[1],mv5=m[5],mv9=m[9];
+			m[1]=m[1]*c-m[2]*s;
+			m[5]=m[5]*c-m[6]*s;
+			m[9]=m[9]*c-m[10]*s;
+			m[2]=m[2]*c+mv1*s;
+			m[6]=m[6]*c+mv5*s;
+			m[10]=m[10]*c+mv9*s;
+		}
+		function rotateY(m,angle)
+		{
+			var c=Math.cos(angle);
+			var s=Math.sin(angle);
+			var mv0=m[0],mv4=m[4],mv8=m[8];
+			m[0]=c*m[0]+s*m[2];
+			m[4]=c*m[4]+s*m[6];
+			m[8]=c*m[8]+s*m[10];
+			m[2]=c*m[2]-s*mv0;
+			m[6]=c*m[6]-s*mv4;
+			m[10]=c*m[10]-s*mv8;
+		}
+		function translate(m,x,y,z)
+		{
+			m[12]+=x;
+			m[13]+=y;
+			m[14]+=z;
+		}
+		/*================= lookAt implementation ===========================*/
+		function neg(A)
+		{
+			var ret=[];
+			for(var i=0;i<A.length;++i){ret.push(-A[i]);}
+			return ret;
+		}
+		function dot(A,B)
+		{
+			var ret=0;
+			var len=A.length;
+			if(len>B.length)len=B.length;
+			for(var i=0;i<len;++i){ret+=A[i]*B[i];}
+			return ret;
+		}
+		function sub(A,B)
+		{
+			var ret=[];
+			var len=A.length;
+			if(len>B.length)len=B.length;
+			for(var i=0;i<len;++i){ret.push(A[i]-B[i]);}
+			return ret;
+		}
+		function cross(A,B)
+		{
+			return[A[1]*B[2]-A[2]*B[1],A[2]*B[0]-A[0]*B[2],A[0]*B[1]-A[1]*B[0]];
+		}
+		function normal(A)
+		{
+			var ret=[]
+			var div=Math.sqrt(dot(A,A));
+			for(var i=0;i<A.length;++i){ret.push(A[i]/div);}
+			return ret;
+		}
+		function lookAt(eye,at,up)
+		{
+			var Z=normal(sub(at,eye));
+			var X=normal(cross(Z,up));
+			var Y=cross(X,Z);
+			Z=neg(Z)
+			return[
+				X[0],Y[0],Z[0],0,
+				X[1],Y[1],Z[1],0,
+				X[2],Y[2],Z[2],0,
+				-dot(X,eye),-dot(Y,eye),-dot(Z,eye),1];
+		}
+		/*================= lookAt data ===========================*/
+		var lookX=2;
+		var lookY=0;
+		var prev_lookX=2;
+		var prev_lookY=0;
+		var EYE=[
+			[[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9]],
+			[[ 9, 0, 9],[ 9, 9, 9],[ 0, 9, 9],[-9, 9, 9],[-9, 0, 9],[-9,-9, 9],[ 0,-9, 9],[ 9,-9, 9]],
+			[[ 9, 0, 0],[ 9, 9, 0],[ 0, 9, 0],[-9, 9, 0],[-9, 0, 0],[-9,-9, 0],[ 0,-9, 0],[ 9,-9, 0]],
+			[[ 9, 0,-9],[ 9, 9,-9],[ 0, 9,-9],[-9, 9,-9],[-9, 0,-9],[-9,-9,-9],[ 0,-9,-9],[ 9,-9,-9]],
+			[[ 0, 0,-9],[ 0, 0,-9],[ 0, 0,-9],[ 0, 0,-9],[ 0, 0,-9],[ 0, 0,-9],[ 0, 0,-9],[ 0, 0,-9]]];
+		var UP=[
+			[[-9, 0, 0],[-9,-9, 0],[ 0,-9, 0],[ 9,-9, 0],[ 9, 0, 0],[ 9, 9, 0],[ 0, 9, 0],[-9, 9, 0]],
+			[[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9]],
+			[[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9]],
+			[[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9]],
+			[[ 9, 0, 0],[ 9, 9, 0],[ 0, 9, 0],[-9, 9, 0],[-9, 0, 0],[-9,-9, 0],[ 0,-9, 0],[ 9,-9, 0]]];
+		/*================= Events ===========================*/
+		function update(){prev_lookX=lookX;prev_lookY=lookY;last_changed=old_time;};
+		var funcUp=function(){if(lookX>0){update();--lookX;}};
+		var funcLeft=function(){update();lookY=(lookY+7)%8;};
+		var funcRight=function(){update();lookY=(lookY+1)%8;};
+		var funcDown=function(){if(lookX<4){update();++lookX;}};
+		var funcToogle=function(){move=!move;};
+		var keyFunc=function(event){
+			event=event?event:window.event;
+			if(event.key=='ArrowUp'){funcUp();}
+			if(event.key=='ArrowLeft'){funcLeft();}
+			if(event.key=='ArrowRight'){funcRight();}
+			if(event.key=='ArrowDown'){funcDown();}
+			if(event.key=='0'){funcToogle();}
+		}
+		document.getElementById("ButtonUp").onclick=funcUp;
+		document.getElementById("ButtonLeft").onclick=funcLeft;
+		document.getElementById("ButtonRight").onclick=funcRight;
+		document.getElementById("ButtonDown").onclick=funcDown;
+		document.getElementById("ButtonToogle").onclick=funcToogle;
+		document.onkeydown=keyFunc;
+		/*================= Drawing ===========================*/
+		var proj_matrix=get_projection(40,canvas.width/canvas.height,1,100);
+		var view_matrix;
+		function matmul(M1,M2)
+		{
+			return[M1[ 0]*M2[ 0]+M1[ 4]*M2[ 1]+M1[ 8]*M2[ 2]+M1[12]*M2[ 3],
+			       M1[ 1]*M2[ 0]+M1[ 5]*M2[ 1]+M1[ 9]*M2[ 2]+M1[13]*M2[ 3],
+			       M1[ 2]*M2[ 0]+M1[ 6]*M2[ 1]+M1[10]*M2[ 2]+M1[14]*M2[ 3],
+			       M1[ 3]*M2[ 0]+M1[ 7]*M2[ 1]+M1[11]*M2[ 2]+M1[15]*M2[ 3],
+			       M1[ 0]*M2[ 4]+M1[ 4]*M2[ 5]+M1[ 8]*M2[ 6]+M1[12]*M2[ 7],
+			       M1[ 1]*M2[ 4]+M1[ 5]*M2[ 5]+M1[ 9]*M2[ 6]+M1[13]*M2[ 7],
+			       M1[ 2]*M2[ 4]+M1[ 6]*M2[ 5]+M1[10]*M2[ 6]+M1[14]*M2[ 7],
+			       M1[ 3]*M2[ 4]+M1[ 7]*M2[ 5]+M1[11]*M2[ 6]+M1[15]*M2[ 7],
+			       M1[ 0]*M2[ 8]+M1[ 4]*M2[ 9]+M1[ 8]*M2[10]+M1[12]*M2[11],
+			       M1[ 1]*M2[ 8]+M1[ 5]*M2[ 9]+M1[ 9]*M2[10]+M1[13]*M2[11],
+			       M1[ 2]*M2[ 8]+M1[ 6]*M2[ 9]+M1[10]*M2[10]+M1[14]*M2[11],
+			       M1[ 3]*M2[ 8]+M1[ 7]*M2[ 9]+M1[11]*M2[10]+M1[15]*M2[11],
+			       M1[ 0]*M2[12]+M1[ 4]*M2[13]+M1[ 8]*M2[14]+M1[12]*M2[15],
+			       M1[ 1]*M2[12]+M1[ 5]*M2[13]+M1[ 9]*M2[14]+M1[13]*M2[15],
+			       M1[ 2]*M2[12]+M1[ 6]*M2[13]+M1[10]*M2[14]+M1[14]*M2[15],
+			       M1[ 3]*M2[12]+M1[ 7]*M2[13]+M1[11]*M2[14]+M1[15]*M2[15]];
+		}
+		function matinv(X)
+		{
+			var M=[
+				[X[0],X[4],X[ 8],X[12]],
+				[X[1],X[5],X[ 9],X[13]],
+				[X[2],X[6],X[10],X[14]],
+				[X[3],X[7],X[11],X[15]]];
+			for(var i=-1;++i<4;)
+				for(var j=-1;++j<4;)
+					M[i].push(i==j?1:0);
+			for(var k=-1;++k<4;)
+			{
+				if(Math.abs(M[k][k])<1e-6)
+				{
+					for(var i=k;++i<4;)
+					{
+						if(Math.abs(M[i][k])>=1e-6)break;
+					}
+					if(i>3)
+					{
+						dbg.innerHTML="Error! Tidak dapat menginverse matrix!";
+						return;
+					}
+					var tmp=M[i];
+					M[i]=M[k];M[k]=M[i];
+				}
+				for(var i=8;i-->k;)M[k][i]/=M[k][k];
+				for(var i=-1;++i<4;)
+				{
+					if(i==k)continue;
+					for(var j=8;j-->k;)M[i][j]-=M[i][k]*M[k][j];
+				}
+			}
+			return[
+				M[0][4],M[1][4],M[2][4],M[3][4],
+				M[0][5],M[1][5],M[2][5],M[3][5],
+				M[0][6],M[1][6],M[2][6],M[3][6],
+				M[0][7],M[1][7],M[2][7],M[3][7]];
+		}
+		function matpos(P1,P2,P3)
+		{
+			return[P1[0],P1[1],P1[2],0,
+			       P2[0],P2[1],P2[2],0,
+			       P3[0],P3[1],P3[2],0,
+			       0,0,0,1];
+		}
+		function segitiga(matrix,P1,P2,P3,C1,C2,C3)
+		{
+			var mov_matrix=matmul(matrix,matpos(P1,P2,P3));
+			var index=[C1,C2+4096,C3+8192];
+			gl.uniformMatrix4fv(Pmatrix,false,proj_matrix);
+			gl.uniformMatrix4fv(Vmatrix,false,view_matrix);
+			gl.uniformMatrix4fv(Mmatrix,false,mov_matrix);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buf);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(index), gl.STATIC_DRAW);
+			gl.drawElements(gl.TRIANGLES, index.length, gl.UNSIGNED_SHORT, 0);
+		}
+		/*================= Object ===========================*/
+		function Node()
+		{
+			this.link=[];
+			this.init_mat=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+			this.init_inv_mat=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
+			this.transform_mat=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+			this.dat=[];
+			for(var i=-1;++i<arguments.length;)
+			{
+				//dbg.innerHTML=arguments.length
+				this.dat.push(arguments[i])
+			}
+			this.draw=function(cur_mat)
+			{
+				cur_mat=matmul(matmul(cur_mat,this.init_mat),this.transform_mat);
+				for(var i=-1;++i<this.dat.length;)
+				{
+					segitiga(cur_mat,
+						this.dat[i][0],
+						this.dat[i][1],
+						this.dat[i][2],
+						this.dat[i][3],
+						this.dat[i][4],
+						this.dat[i][5]);
+				}
+				cut_mat=matmul(cur_mat,this.init_inv_mat)
+				for(var i=-1;++i<this.link.length;)
+				{
+					this.link[i].draw(cur_mat.slice());
+				}
+			}
+			this.link_object=function(O)
+			{
+				this.link.push(O);
+			}
+			this.insert_segitiga=function(P1,P2,P3,C1,C2,C3)
+			{
+				this.dat.push([P1,P2,P3,C1,C2,C3]);
+			}
+			this.apply_transformation=function(mat)
+			{
+				this.transform_mat=matmul(mat,this.transform_mat);
+			}
+			this.edit_init_mat=function(mat)
+			{
+				this.init_mat=mat.slice();
+				this.init_inv_mat=matinv(mat);
+			}
+			this.reset_transformation=function(recuring)
+			{
+				this.transform_mat=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+				if(recuring)
+				{
+					for(var i=-1;++i<this.link.length;)
+					{
+						this.link[i].reset_transformation(recuring);
+					}
+				}
+			}
+		}
+		/*================= Main Program ===========================*/
+		var move=false;
+		var last_changed=0;
+		var old_time=0;
+		var dt=0;
+		function moveCam(A,B){
+			var progress=(old_time-last_changed)*0.005;
+			if(progress>1)progress=1;
+			progress=(1-Math.cos(progress*Math.PI))/2;
+			var Cam=[];
+			for(var i=-1;++i<3;){Cam.push(B[i]*progress+A[i]*(1-progress));}
+			return Cam;
+		}
+		root=new Node(
+			[[ 1,-1,0],[ 1, 1,0],[0,0,1],0x00f,0x0f0,0xf00],
+			[[ 1, 1,0],[-1, 1,0],[0,0,1],0xff0,0xf0f,0x0ff],
+			[[-1, 1,0],[-1,-1,0],[0,0,1],0x0f0,0xf00,0x00f],
+			[[-1,-1,0],[ 1,-1,0],[0,0,1],0xf0f,0x0ff,0xff0]);
+
+		
+		//root.insert_segitiga([0,0,0],[ 0, 2,0],[0,0,1],0x00f,0x0f0,0xf00);
+
+		var animate = function(time) {
+			if(move){dt+=(time-old_time)*0.0001;}
+			dbg.innerHTML=Math.floor(time);
+			old_time=time;
+			var phs=(dt-Math.floor(dt))*9;
+			var Tx=0;
+			var Ty=0;
+			var Tz=0;
+			if(phs<1){Tx=(1-Math.cos(phs*Math.PI))/2;}
+			else if(phs<2){phs-=1;Tx=Math.cos(phs*Math.PI);}
+			else if(phs<3){phs-=2;Tx=-(1+Math.cos(phs*Math.PI))/2;}
+			else if(phs<4){phs-=3;Ty=(1-Math.cos(phs*Math.PI))/2;}
+			else if(phs<5){phs-=4;Ty=Math.cos(phs*Math.PI);}
+			else if(phs<6){phs-=5;Ty=-(1+Math.cos(phs*Math.PI))/2;}
+			else if(phs<7){phs-=6;Tz=(1-Math.cos(phs*Math.PI))/2;}
+			else if(phs<8){phs-=7;Tz=Math.cos(phs*Math.PI);}
+			else{phs-=8;Tz=-(1+Math.cos(phs*Math.PI))/2;}
+			Tx*=5;Ty*=5;Tz*=5;
+			var mov_matrix=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+			rotateZ(mov_matrix,Tz*Math.PI/2);
+			rotateY(mov_matrix,Ty*Math.PI/2);
+			rotateX(mov_matrix,Tx*Math.PI/2);
+			translate(mov_matrix,Tx,Ty,Tz);
+			gl.enable(gl.DEPTH_TEST);
+			gl.depthFunc(gl.LEQUAL);
+			gl.clearColor(0.7,0.7,0.7,0.9);
+			gl.clearDepth(1.0);
+			gl.viewport(0.0,0.0,canvas.width, canvas.height);
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+			view_matrix=lookAt(
+				moveCam(EYE[prev_lookX][prev_lookY],EYE[lookX][lookY]),
+				[0,0,0],
+				moveCam(UP[prev_lookX][prev_lookY],UP[lookX][lookY]));
+			root.draw(mov_matrix);
+			window.requestAnimationFrame(animate);
+		}
+		animate(0);
+	</script>
+  </body>
+</html>
