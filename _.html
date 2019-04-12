@@ -374,7 +374,7 @@
 			[[-1, 1,0],[-1,-1,0],[0,0,1],0x0f0,0xf00,0x00f],
 			[[-1,-1,0],[ 1,-1,0],[0,0,1],0xf0f,0x0ff,0xff0]);
 
-		
+		//perubahan
 		//root.insert_segitiga([0,0,0],[ 0, 2,0],[0,0,1],0x00f,0x0f0,0xf00);
 
 		var animate = function(time) {
@@ -394,8 +394,8 @@
 			else if(phs<7){phs-=6;Tz=(1-Math.cos(phs*Math.PI))/2;}
 			else if(phs<8){phs-=7;Tz=Math.cos(phs*Math.PI);}
 			else{phs-=8;Tz=-(1+Math.cos(phs*Math.PI))/2;}
-			Tx*=5;Ty*=5;Tz*=5;
 			var mov_matrix=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+			Tx*=5;Ty*=5;Tz*=5;
 			rotateZ(mov_matrix,Tz*Math.PI/2);
 			rotateY(mov_matrix,Ty*Math.PI/2);
 			rotateX(mov_matrix,Tx*Math.PI/2);
