@@ -100,6 +100,7 @@
 			m[1]=c*m[1]+s*mv0;
 			m[5]=c*m[5]+s*mv4;
 			m[9]=c*m[9]+s*mv8;
+			return m;
 		}
 		function rotateX(m,angle)
 		{
@@ -112,6 +113,7 @@
 			m[2]=m[2]*c+mv1*s;
 			m[6]=m[6]*c+mv5*s;
 			m[10]=m[10]*c+mv9*s;
+			return m;
 		}
 		function rotateY(m,angle)
 		{
@@ -124,12 +126,14 @@
 			m[2]=c*m[2]-s*mv0;
 			m[6]=c*m[6]-s*mv4;
 			m[10]=c*m[10]-s*mv8;
+			return m;
 		}
 		function translate(m,x,y,z)
 		{
 			m[12]+=x;
 			m[13]+=y;
 			m[14]+=z;
+			return m;
 		}
 		/*================= lookAt implementation ===========================*/
 		function neg(A)
@@ -374,7 +378,9 @@
 			[[-1, 1,0],[-1,-1,0],[0,0,1],0x0f0,0xf00,0x00f],
 			[[-1,-1,0],[ 1,-1,0],[0,0,1],0xf0f,0x0ff,0xff0]);
 
-		//perubahan
+		root.edit_init_mat(rotateX([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],10));
+		root.apply_transformation(rotateY([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],10));
+		root.apply_transformation(rotateZ([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],10));
 		//root.insert_segitiga([0,0,0],[ 0, 2,0],[0,0,1],0x00f,0x0f0,0xf00);
 
 		var animate = function(time) {
@@ -394,8 +400,8 @@
 			else if(phs<7){phs-=6;Tz=(1-Math.cos(phs*Math.PI))/2;}
 			else if(phs<8){phs-=7;Tz=Math.cos(phs*Math.PI);}
 			else{phs-=8;Tz=-(1+Math.cos(phs*Math.PI))/2;}
-			var mov_matrix=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
 			Tx*=5;Ty*=5;Tz*=5;
+			var mov_matrix=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
 			rotateZ(mov_matrix,Tz*Math.PI/2);
 			rotateY(mov_matrix,Ty*Math.PI/2);
 			rotateX(mov_matrix,Tx*Math.PI/2);
