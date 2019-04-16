@@ -311,12 +311,35 @@
 				//dbg.innerHTML=arguments.length
 				this.dat.push(arguments[i])
 			}
-			this.draw=function(cur_mat)
+			this.copy=function(recuring=1)
 			{
-				cur_mat=matmul(matmul(cur_mat,this.init_mat),this.transform_mat);
+				var ret=new Node();
 				for(var i=-1;++i<this.dat.length;)
 				{
-					segitiga(cur_mat,
+					ret.insert_segitiga(
+						[this.dat[i][0][0],this.dat[i][0][1],this.dat[i][0][2]],
+						[this.dat[i][1][0],this.dat[i][1][1],this.dat[i][1][2]],
+						[this.dat[i][2][0],this.dat[i][2][1],this.dat[i][2][2]],
+						 this.dat[i][3]   ,this.dat[i][4]   ,this.dat[i][5]   );
+				}
+				ret.init_mat=this.init_mat.slice();
+				ret.init_inv_mat=this.init_inv_mat.slice();
+				ret.transform_mat=this.transform_mat.slice();
+				for(var i=-1;++i<this.link.length;)
+				{
+					if(recuring)
+						ret.link.push(this.link[i].copy());
+					else
+						ret.link.push(this.link[i]);
+				}
+				return ret;
+			}
+			this.draw=function(cur_mat)
+			{
+				var tmp_mat=matmul(matmul(cur_mat,this.init_mat),this.transform_mat);
+				for(var i=-1;++i<this.dat.length;)
+				{
+					segitiga(tmp_mat,
 						this.dat[i][0],
 						this.dat[i][1],
 						this.dat[i][2],
@@ -324,10 +347,10 @@
 						this.dat[i][4],
 						this.dat[i][5]);
 				}
-				cut_mat=matmul(cur_mat,this.init_inv_mat)
+				var cuinv_mat=matmul(tmp_mat,this.init_inv_mat);
 				for(var i=-1;++i<this.link.length;)
 				{
-					this.link[i].draw(cur_mat.slice());
+					this.link[i].draw(cuinv_mat.slice());
 				}
 			}
 			this.link_object=function(O)
@@ -347,7 +370,11 @@
 				this.init_mat=mat.slice();
 				this.init_inv_mat=matinv(mat);
 			}
-			this.reset_transformation=function(recuring)
+			this.apply_init_transformation=function(mat)
+			{
+				this.edit_init_mat(matmul(mat,this.init_mat));
+			}
+			this.reset_transformation=function(recuring=1)
 			{
 				this.transform_mat=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
 				if(recuring)
@@ -372,21 +399,75 @@
 			for(var i=-1;++i<3;){Cam.push(B[i]*progress+A[i]*(1-progress));}
 			return Cam;
 		}
-		root=new Node(
-			[[ 1,-1,0],[ 1, 1,0],[0,0,1],0x00f,0x0f0,0xf00],
-			[[ 1, 1,0],[-1, 1,0],[0,0,1],0xff0,0xf0f,0x0ff],
-			[[-1, 1,0],[-1,-1,0],[0,0,1],0x0f0,0xf00,0x00f],
-			[[-1,-1,0],[ 1,-1,0],[0,0,1],0xf0f,0x0ff,0xff0]);
-
-		root.edit_init_mat(rotateX([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],10));
-		root.apply_transformation(rotateY([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],10));
-		root.apply_transformation(rotateZ([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],10));
-		//root.insert_segitiga([0,0,0],[ 0, 2,0],[0,0,1],0x00f,0x0f0,0xf00);
+		
+		var kepala=new Node(
+			[[ 1,-1,0],[ 1, 1,0],[0,0,1],0x00f,0x00f,0x00f],
+			[[ 1, 1,0],[-1, 1,0],[0,0,1],0x0f0,0x0f0,0x0f0],
+			[[-1, 1,0],[-1,-1,0],[0,0,1],0xf00,0xf00,0xf00],
+			[[-1,-1,0],[ 1,-1,0],[0,0,1],0xff0,0xff0,0xff0],
+			[[-1,-1,0],[ 1, 1,0],[ 1,-1,0],0x0ff,0x0ff,0x0ff],
+			[[-1,-1,0],[ 1, 1,0],[-1, 1,0],0x0ff,0x0ff,0x0ff]);
+		var kaki_atas=new Node(
+			[[ .1,-.1, 0],[ .1, .1, 0],[ .1,-.1,-1],0x00f,0x00f,0x00f],
+			[[ .1,-.1,-1],[ .1, .1,-1],[ .1, .1, 0],0x00f,0x00f,0x00f],
+			[[-.1, .1, 0],[ .1, .1, 0],[-.1, .1,-1],0x0f0,0x0f0,0x0f0],
+			[[-.1, .1,-1],[ .1, .1,-1],[ .1, .1, 0],0x0f0,0x0f0,0x0f0],
+			[[-.1,-.1, 0],[-.1, .1, 0],[-.1,-.1,-1],0xf00,0xf00,0xf00],
+			[[-.1,-.1,-1],[-.1, .1,-1],[-.1, .1, 0],0xf00,0xf00,0xf00],
+			[[-.1,-.1, 0],[ .1,-.1, 0],[-.1,-.1,-1],0xff0,0xff0,0xff0],
+			[[-.1,-.1,-1],[ .1,-.1,-1],[ .1,-.1, 0],0xff0,0xff0,0xff0],
+			[[-.1,-.1, 0],[ .1, .1, 0],[ .1,-.1, 0],0xf0f,0xf0f,0xf0f],
+			[[-.1,-.1, 0],[ .1, .1, 0],[-.1, .1, 0],0xf0f,0xf0f,0xf0f],
+			[[-.1,-.1,-1],[ .1, .1,-1],[ .1,-.1,-1],0xf0f,0xf0f,0xf0f],
+			[[-.1,-.1,-1],[ .1, .1,-1],[-.1, .1,-1],0xf0f,0xf0f,0xf0f]);
+		var kaki_bawah=new Node(
+			[[ .1,-.1, 0],[ .1, .1, 0],[ .1,-.1,-1],0x0f0,0x0f0,0x0f0],
+			[[ .1,-.1,-1],[ .1, .1,-1],[ .1, .1, 0],0x0f0,0x0f0,0x0f0],
+			[[-.1, .1, 0],[ .1, .1, 0],[-.1, .1,-1],0xff0,0xff0,0xff0],
+			[[-.1, .1,-1],[ .1, .1,-1],[ .1, .1, 0],0xff0,0xff0,0xff0],
+			[[-.1,-.1, 0],[-.1, .1, 0],[-.1,-.1,-1],0x00f,0x00f,0x00f],
+			[[-.1,-.1,-1],[-.1, .1,-1],[-.1, .1, 0],0x00f,0x00f,0x00f],
+			[[-.1,-.1, 0],[ .1,-.1, 0],[-.1,-.1,-1],0xf00,0xf00,0xf00],
+			[[-.1,-.1,-1],[ .1,-.1,-1],[ .1,-.1, 0],0xf00,0xf00,0xf00],
+			[[-.1,-.1, 0],[ .1, .1, 0],[ .1,-.1, 0],0xf0f,0xf0f,0xf0f],
+			[[-.1,-.1, 0],[ .1, .1, 0],[-.1, .1, 0],0xf0f,0xf0f,0xf0f],
+			[[-.1,-.1,-1],[ .1, .1,-1],[ .1,-.1,-1],0xf0f,0xf0f,0xf0f],
+			[[-.1,-.1,-1],[ .1, .1,-1],[-.1, .1,-1],0xf0f,0xf0f,0xf0f]);
+		kaki_bawah.apply_init_transformation(translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],0,0,-1));
+		kaki_bawah.apply_init_transformation(rotateY([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/4.0));
+		kaki_atas.apply_init_transformation(rotateY([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/4.0));
+		kaki_bawah.apply_init_transformation(translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],1,0,0));
+		kaki_atas.apply_init_transformation(translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],1,0,0));
+		kaki_atas.link.push(kaki_bawah);
+		kepala.link.push(kaki_atas);
+		kaki_atas=kaki_atas.copy();
+		kaki_bawah=kaki_atas.link[0];
+		kaki_atas.apply_init_transformation(rotateZ([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/2.0001));
+		kaki_bawah.apply_init_transformation(rotateZ([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/2.0001));
+		kepala.link.push(kaki_atas);
+		kaki_atas=kaki_atas.copy();
+		kaki_bawah=kaki_atas.link[0];
+		kaki_atas.apply_init_transformation(rotateZ([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/2.0001));
+		kaki_bawah.apply_init_transformation(rotateZ([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/2.0001));
+		kepala.link.push(kaki_atas);
+		kaki_atas=kaki_atas.copy();
+		kaki_bawah=kaki_atas.link[0];
+		kaki_atas.apply_init_transformation(rotateZ([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/2.0001));
+		kaki_bawah.apply_init_transformation(rotateZ([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/2.0001));
+		kepala.link.push(kaki_atas);
+		root=kepala.copy();
 
 		var animate = function(time) {
 			if(move){dt+=(time-old_time)*0.0001;}
 			dbg.innerHTML=Math.floor(time);
 			old_time=time;
+			for(var i=-1;++i<root.link.length;)
+			{
+				root.link[i].transform_mat=rotateY([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],Math.cos(time*0.005));
+				root.link[i].link[0].transform_mat=rotateY([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],Math.cos(time*0.007));
+			}
+			root.transform_mat=translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],0,0,Math.cos(time*0.003));
+			rotateZ(root.transform_mat,time*0.001);
 			var phs=(dt-Math.floor(dt))*9;
 			var Tx=0;
 			var Ty=0;
