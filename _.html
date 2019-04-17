@@ -53,6 +53,7 @@
 	<script id="main-program" type="text/javascript">
 		var dbg=document.getElementById('debug');
 		var canvas=document.getElementById('my_canvas');
+
 		/*=================== Initialization =========================*/
 		gl=canvas.getContext('webgl');
 		var posisi_buf=gl.createBuffer();
@@ -61,10 +62,12 @@
 		var vshader=gl.createShader(gl.VERTEX_SHADER);
 		gl.shaderSource(vshader,vshader_code);
 		gl.compileShader(vshader);
+		
 		var fshader_code=document.getElementById('fragment-shader').innerHTML;
 		var fshader=gl.createShader(gl.FRAGMENT_SHADER);
 		gl.shaderSource(fshader,fshader_code);
 		gl.compileShader(fshader);
+		
 		var shader_prog=gl.createProgram();
 		gl.attachShader(shader_prog, vshader);
 		gl.attachShader(shader_prog, fshader);
@@ -81,15 +84,18 @@
 		gl.vertexAttribPointer(warna_ptr,3,gl.FLOAT,false,0,0);
 		gl.enableVertexAttribArray(warna_ptr);
 		gl.useProgram(shader_prog);
+		
 		/*==================== Transformation Function ====================*/
 		function get_projection(angle,a,zMin,zMax)
 		{
 			var ang=Math.tan((angle*.5)*Math.PI/180);
+		
 			return[0.5/ang, 0        ,                         0,  0,
 			       0      , 0.5*a/ang,                         0,  0,
 			       0      , 0        ,  -(zMax+zMin)/(zMax-zMin), -1,
 			       0      , 0        ,(-2*zMax*zMin)/(zMax-zMin),  0];
 		}
+		
 		function rotateZ(m,angle)
 		{
 			var c=Math.cos(angle);
@@ -101,8 +107,10 @@
 			m[1]=c*m[1]+s*mv0;
 			m[5]=c*m[5]+s*mv4;
 			m[9]=c*m[9]+s*mv8;
+		
 			return m;
 		}
+		
 		function rotateX(m,angle)
 		{
 			var c=Math.cos(angle);
@@ -114,8 +122,10 @@
 			m[2]=m[2]*c+mv1*s;
 			m[6]=m[6]*c+mv5*s;
 			m[10]=m[10]*c+mv9*s;
+		
 			return m;
 		}
+		
 		function rotateY(m,angle)
 		{
 			var c=Math.cos(angle);
@@ -127,61 +137,76 @@
 			m[2]=c*m[2]-s*mv0;
 			m[6]=c*m[6]-s*mv4;
 			m[10]=c*m[10]-s*mv8;
+		
 			return m;
 		}
+		
 		function translate(m,x,y,z)
 		{
 			m[12]+=x;
 			m[13]+=y;
 			m[14]+=z;
+		
 			return m;
 		}
+		
 		/*================= lookAt implementation ===========================*/
 		function neg(A)
 		{
 			var ret=[];
 			for(var i=0;i<A.length;++i){ret.push(-A[i]);}
+		
 			return ret;
 		}
+		
 		function dot(A,B)
 		{
 			var ret=0;
 			var len=A.length;
 			if(len>B.length)len=B.length;
 			for(var i=0;i<len;++i){ret+=A[i]*B[i];}
+		
 			return ret;
 		}
+		
 		function sub(A,B)
 		{
 			var ret=[];
 			var len=A.length;
 			if(len>B.length)len=B.length;
 			for(var i=0;i<len;++i){ret.push(A[i]-B[i]);}
+		
 			return ret;
 		}
+		
 		function cross(A,B)
 		{
 			return[A[1]*B[2]-A[2]*B[1],A[2]*B[0]-A[0]*B[2],A[0]*B[1]-A[1]*B[0]];
 		}
+		
 		function normal(A)
 		{
 			var ret=[]
 			var div=Math.sqrt(dot(A,A));
 			for(var i=0;i<A.length;++i){ret.push(A[i]/div);}
+		
 			return ret;
 		}
+		
 		function lookAt(eye,at,up)
 		{
 			var Z=normal(sub(at,eye));
 			var X=normal(cross(Z,up));
 			var Y=cross(X,Z);
 			Z=neg(Z)
+		
 			return[
 				X[0],Y[0],Z[0],0,
 				X[1],Y[1],Z[1],0,
 				X[2],Y[2],Z[2],0,
 				-dot(X,eye),-dot(Y,eye),-dot(Z,eye),1];
 		}
+		
 		/*================= lookAt data ===========================*/
 		var lookX=2;
 		var lookY=0;
@@ -199,6 +224,7 @@
 			[[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9]],
 			[[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9],[ 0, 0, 9]],
 			[[ 9, 0, 0],[ 9, 9, 0],[ 0, 9, 0],[-9, 9, 0],[-9, 0, 0],[-9,-9, 0],[ 0,-9, 0],[ 9,-9, 0]]];
+		
 		/*================= Events ===========================*/
 		function update(){prev_lookX=lookX;prev_lookY=lookY;last_changed=old_time;};
 		var funcUp=function(){if(lookX>0){update();--lookX;}};
@@ -220,9 +246,11 @@
 		document.getElementById("ButtonDown").onclick=funcDown;
 		document.getElementById("ButtonToogle").onclick=funcToogle;
 		document.onkeydown=keyFunc;
+		
 		/*================= Drawing ===========================*/
 		var proj_matrix=get_projection(40,canvas.width/canvas.height,1,100);
 		var view_matrix;
+		
 		function matmul(M1,M2)
 		{
 			return[M1[ 0]*M2[ 0]+M1[ 4]*M2[ 1]+M1[ 8]*M2[ 2]+M1[12]*M2[ 3],
@@ -242,6 +270,7 @@
 			       M1[ 2]*M2[12]+M1[ 6]*M2[13]+M1[10]*M2[14]+M1[14]*M2[15],
 			       M1[ 3]*M2[12]+M1[ 7]*M2[13]+M1[11]*M2[14]+M1[15]*M2[15]];
 		}
+		
 		function matinv(X)
 		{
 			var M=[
@@ -275,12 +304,14 @@
 					for(var j=8;j-->k;)M[i][j]-=M[i][k]*M[k][j];
 				}
 			}
+		
 			return[
 				M[0][4],M[1][4],M[2][4],M[3][4],
 				M[0][5],M[1][5],M[2][5],M[3][5],
 				M[0][6],M[1][6],M[2][6],M[3][6],
 				M[0][7],M[1][7],M[2][7],M[3][7]];
 		}
+		
 		function matpos(P1,P2,P3)
 		{
 			return[P1[0],P1[1],P1[2],0,
@@ -289,6 +320,7 @@
 			       0,0,0,1];
 		}
 		var sumber_cahaya;
+		
 		function segitiga(matrix,P1,P2,P3,C1,C2,C3)
 		{
 			var mov_matrix=matmul(matrix,matpos(P1,P2,P3));
@@ -319,6 +351,7 @@
 			gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(warna),gl.STATIC_DRAW);
 			gl.drawArrays(gl.TRIANGLES,0,3);
 		}
+		
 		/*================= Object ===========================*/
 		function Node()
 		{
@@ -353,6 +386,7 @@
 					else
 						ret.link.push(this.link[i]);
 				}
+		
 				return ret;
 			}
 			this.draw=function(cur_mat)
@@ -419,17 +453,20 @@
 						this.link[i].set_warna(recurring);
 			}
 		}
+		
 		/*================= Main Program ===========================*/
 		var move=false;
 		var last_changed=0;
 		var old_time=0;
 		var dt=0;
+		
 		function moveCam(A,B){
 			var progress=(old_time-last_changed)*0.005;
 			if(progress>1)progress=1;
 			progress=(1-Math.cos(progress*Math.PI))/2;
 			var Cam=[];
 			for(var i=-1;++i<3;){Cam.push(B[i]*progress+A[i]*(1-progress));}
+		
 			return Cam;
 		}
 		var kepala=new Node(
@@ -465,6 +502,7 @@
 			[[-.1,-.1, 0],[ .1, .1, 0],[-.1, .1, 0],0xff0000,0xff0000,0xff0000],
 			[[-.1,-.1,-1],[ .1, .1,-1],[ .1,-.1,-1],0xffffff,0xffffff,0xffffff],
 			[[-.1, .1,-1],[ .1, .1,-1],[-.1,-.1,-1],0xffffff,0xffffff,0xffffff]);
+		
 		sumber_cahaya=[10,15,20];
 		kaki_bawah.apply_init_transformation(translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],0,0,-1));
 		kaki_bawah.apply_init_transformation(rotateY([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/4.0));
