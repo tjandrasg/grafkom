@@ -1,16 +1,34 @@
 <!doctype html>
 <html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta http-equiv="X-UA-Compatible" content="ie=edge">
+		<title>bunGLon Worksheet-2</title>
+		<link href="https://fonts.googleapis.com/css?family=Roboto+Slab" rel="stylesheet">
+		<link rel="stylesheet" href="style.css">
+	</head>	
   <body>
-	<p id="debug">debug text</p>
-	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<button id = "ButtonUp">Up</button>
-	<p></p>
-	&nbsp;&nbsp;<button id = "ButtonLeft">Left</button><button id = "ButtonRight">Right</button>
-	<p></p>
-	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<button id = "ButtonDown">Down</button>
-	<p></p>
-	<button id = "ButtonToogle">Toogle Movement (0)</button>
-	<p></p>
-	<canvas width="570" height="570" id="my_canvas"></canvas>
+		<h1>bunGLon Worksheet-2</h1>
+		<h3>Contributors:</h3>
+		<p>1706124176 - Tjandra Satria Gunawan</p>
+		<p>1606917696 - Kevin Prakasa</p>
+		<p>1606878871 - Justin</p>
+		<p id="debug">debug text</p>
+		<br>
+		<div class="container">
+			<div>
+				<h1>Camera option</h1>
+				<button id = "ButtonUp">Up</button>
+				<br/>
+				<button id = "ButtonLeft">Left</button><button id = "ButtonRight">Right</button>
+				<br/>
+				<button id = "ButtonDown">Down</button>
+				<br/>
+				<button id = "ButtonToogle">Toogle Movement (0)</button>
+			</div>
+			<canvas width="570" height="570" id="my_canvas"></canvas>
+		</div>
 	<script id="vertex-shader" type="x-shader/x-vertex">
 		attribute vec3 position;
 		uniform mat4 Pmatrix;
@@ -445,8 +463,8 @@
 			[[-.1,-.1,-1],[ .1,-.1,-1],[ .1,-.1, 0],0x0000ff,0x0000ff,0xff0000],
 			[[ .1,-.1, 0],[ .1, .1, 0],[-.1,-.1, 0],0xff0000,0xff0000,0xff0000],
 			[[-.1,-.1, 0],[ .1, .1, 0],[-.1, .1, 0],0xff0000,0xff0000,0xff0000],
-			[[-.1,-.1,-1],[ .1, .1,-1],[ .1,-.1,-1],0x0000ff,0x0000ff,0x0000ff],
-			[[-.1, .1,-1],[ .1, .1,-1],[-.1,-.1,-1],0x0000ff,0x0000ff,0x0000ff]);
+			[[-.1,-.1,-1],[ .1, .1,-1],[ .1,-.1,-1],0xffffff,0xffffff,0xffffff],
+			[[-.1, .1,-1],[ .1, .1,-1],[-.1,-.1,-1],0xffffff,0xffffff,0xffffff]);
 		sumber_cahaya=[10,15,20];
 		kaki_bawah.apply_init_transformation(translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],0,0,-1));
 		kaki_bawah.apply_init_transformation(rotateY([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/4.0));
