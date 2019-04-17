@@ -14,7 +14,7 @@
 		<p>1706124176 - Tjandra Satria Gunawan</p>
 		<p>1606917696 - Kevin Prakasa</p>
 		<p>1606878871 - Justin</p>
-		<p id="debug">debug text</p>
+		<p id="debug"></p>
 		<br>
 		<div class="container">
 			<div>
@@ -530,7 +530,7 @@
 
 		var animate = function(time) {
 			if(move){dt+=(time-old_time)*0.0001;}
-			dbg.innerHTML=Math.floor(time);
+			// dbg.innerHTML=Math.floor(time);
 			old_time=time;
 			for(var i=-1;++i<root.link.length;)
 			{
