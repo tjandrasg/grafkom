@@ -37,25 +37,8 @@
 		var canvas=document.getElementById('my_canvas');
 		/*=================== Initialization =========================*/
 		gl=canvas.getContext('webgl');
-		var posisi=[];
-		var warna=[];
-		for(var i=-1;++i<12288;)
-		{
-			posisi.push(0<=i&&i<4096?1:0);
-			posisi.push(4096<=i&&i<8192?1:0);
-			posisi.push(8192<=i&&i<12288?1:0);
-			var j=i%4096;
-			warna.push(1.0/15.0*(Math.floor(j/256)%16));
-			warna.push(1.0/15.0*(Math.floor(j/16)%16));
-			warna.push(1.0/15.0*(Math.floor(j/1)%16));
-		}
 		var posisi_buf=gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER,posisi_buf);
-		gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(posisi),gl.STATIC_DRAW);
 		var warna_buf=gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER,warna_buf);
-		gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(warna),gl.STATIC_DRAW);
-		var index_buf=gl.createBuffer();
 		var vshader_code=document.getElementById('vertex-shader').innerHTML;
 		var vshader=gl.createShader(gl.VERTEX_SHADER);
 		gl.shaderSource(vshader,vshader_code);
@@ -287,16 +270,36 @@
 			       P3[0],P3[1],P3[2],0,
 			       0,0,0,1];
 		}
+		var sumber_cahaya;
 		function segitiga(matrix,P1,P2,P3,C1,C2,C3)
 		{
 			var mov_matrix=matmul(matrix,matpos(P1,P2,P3));
-			var index=[C1,C2+4096,C3+8192];
 			gl.uniformMatrix4fv(Pmatrix,false,proj_matrix);
 			gl.uniformMatrix4fv(Vmatrix,false,view_matrix);
 			gl.uniformMatrix4fv(Mmatrix,false,mov_matrix);
-			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buf);
-			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(index), gl.STATIC_DRAW);
-			gl.drawElements(gl.TRIANGLES, index.length, gl.UNSIGNED_SHORT, 0);
+
+			var A1=mov_matrix.slice(0,3);
+			var A2=mov_matrix.slice(4,7);
+			var A3=mov_matrix.slice(8,11);
+			var norm=normal(cross(sub(A2,A1),sub(A3,A1)));
+			var P=[(A1[0]+A2[0]+A3[0])/3,(A1[1]+A2[1]+A3[1])/3,(A1[2]+A2[2]+A3[2])/3];
+			var arah_sinar=sub(sumber_cahaya,P);
+			var intensitas=dot(norm,normal(arah_sinar));
+			if(intensitas<0.1)intensitas=0.1;
+
+			var C=[C1,C2,C3];
+			var warna=[]
+			for(var i=-1;++i<C.length;)
+			{
+				warna.push((C[i]>>16&255)/255.0*intensitas);
+				warna.push((C[i]>>8&255)/255.0*intensitas);
+				warna.push((C[i]&255)/255.0*intensitas);
+			}
+			gl.bindBuffer(gl.ARRAY_BUFFER,posisi_buf);
+			gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([1,0,0,0,1,0,0,0,1]),gl.STATIC_DRAW);
+			gl.bindBuffer(gl.ARRAY_BUFFER,warna_buf);
+			gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(warna),gl.STATIC_DRAW);
+			gl.drawArrays(gl.TRIANGLES,0,3);
 		}
 		/*================= Object ===========================*/
 		function Node()
@@ -311,7 +314,7 @@
 				//dbg.innerHTML=arguments.length
 				this.dat.push(arguments[i])
 			}
-			this.copy=function(recuring=1)
+			this.copy=function(recurring=1)
 			{
 				var ret=new Node();
 				for(var i=-1;++i<this.dat.length;)
@@ -327,7 +330,7 @@
 				ret.transform_mat=this.transform_mat.slice();
 				for(var i=-1;++i<this.link.length;)
 				{
-					if(recuring)
+					if(recurring)
 						ret.link.push(this.link[i].copy());
 					else
 						ret.link.push(this.link[i]);
@@ -350,7 +353,7 @@
 				var cuinv_mat=matmul(tmp_mat,this.init_inv_mat);
 				for(var i=-1;++i<this.link.length;)
 				{
-					this.link[i].draw(cuinv_mat.slice());
+					this.link[i].draw(cuinv_mat);
 				}
 			}
 			this.link_object=function(O)
@@ -374,16 +377,28 @@
 			{
 				this.edit_init_mat(matmul(mat,this.init_mat));
 			}
-			this.reset_transformation=function(recuring=1)
+			this.reset_transformation=function(recurring=1)
 			{
 				this.transform_mat=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
-				if(recuring)
+				if(recurring)
 				{
 					for(var i=-1;++i<this.link.length;)
 					{
-						this.link[i].reset_transformation(recuring);
+						this.link[i].reset_transformation(recurring);
 					}
 				}
+			}
+			this.set_warna=function(C1,C2,C3,recurring=0)
+			{
+				for(var i=-1;++i<this.dat.length;)
+				{
+					this.dat[i][3]=C1;
+					this.dat[i][4]=C2;
+					this.dat[i][5]=C3;
+				}
+				if(recurring)
+					for(var i=-1;++i<this.link.length;)
+						this.link[i].set_warna(recurring);
 			}
 		}
 		/*================= Main Program ===========================*/
@@ -399,40 +414,40 @@
 			for(var i=-1;++i<3;){Cam.push(B[i]*progress+A[i]*(1-progress));}
 			return Cam;
 		}
-		
 		var kepala=new Node(
-			[[ 1,-1,0],[ 1, 1,0],[0,0,1],0x00f,0x00f,0x00f],
-			[[ 1, 1,0],[-1, 1,0],[0,0,1],0x0f0,0x0f0,0x0f0],
-			[[-1, 1,0],[-1,-1,0],[0,0,1],0xf00,0xf00,0xf00],
-			[[-1,-1,0],[ 1,-1,0],[0,0,1],0xff0,0xff0,0xff0],
-			[[-1,-1,0],[ 1, 1,0],[ 1,-1,0],0x0ff,0x0ff,0x0ff],
-			[[-1,-1,0],[ 1, 1,0],[-1, 1,0],0x0ff,0x0ff,0x0ff]);
+			[[ 1,-1,0],[ 1, 1,0],[0,0,1],0x00ff00,0x00ff00,0xffff00],
+			[[ 1, 1,0],[-1, 1,0],[0,0,1],0x00ff00,0x00ff00,0xffff00],
+			[[-1, 1,0],[-1,-1,0],[0,0,1],0x00ff00,0x00ff00,0xffff00],
+			[[-1,-1,0],[ 1,-1,0],[0,0,1],0x00ff00,0x00ff00,0xffff00],
+			[[-1,-1,0],[ 1, 1,0],[ 1,-1,0],0x00ffff,0x00ffff,0x00ffff],
+			[[-1, 1,0],[ 1, 1,0],[-1,-1,0],0x00ffff,0x00ffff,0x00ffff]);
 		var kaki_atas=new Node(
-			[[ .1,-.1, 0],[ .1, .1, 0],[ .1,-.1,-1],0x00f,0x00f,0x00f],
-			[[ .1,-.1,-1],[ .1, .1,-1],[ .1, .1, 0],0x00f,0x00f,0x00f],
-			[[-.1, .1, 0],[ .1, .1, 0],[-.1, .1,-1],0x0f0,0x0f0,0x0f0],
-			[[-.1, .1,-1],[ .1, .1,-1],[ .1, .1, 0],0x0f0,0x0f0,0x0f0],
-			[[-.1,-.1, 0],[-.1, .1, 0],[-.1,-.1,-1],0xf00,0xf00,0xf00],
-			[[-.1,-.1,-1],[-.1, .1,-1],[-.1, .1, 0],0xf00,0xf00,0xf00],
-			[[-.1,-.1, 0],[ .1,-.1, 0],[-.1,-.1,-1],0xff0,0xff0,0xff0],
-			[[-.1,-.1,-1],[ .1,-.1,-1],[ .1,-.1, 0],0xff0,0xff0,0xff0],
-			[[-.1,-.1, 0],[ .1, .1, 0],[ .1,-.1, 0],0xf0f,0xf0f,0xf0f],
-			[[-.1,-.1, 0],[ .1, .1, 0],[-.1, .1, 0],0xf0f,0xf0f,0xf0f],
-			[[-.1,-.1,-1],[ .1, .1,-1],[ .1,-.1,-1],0xf0f,0xf0f,0xf0f],
-			[[-.1,-.1,-1],[ .1, .1,-1],[-.1, .1,-1],0xf0f,0xf0f,0xf0f]);
+			[[ .1,-.1,-1],[ .1, .1, 0],[ .1,-.1, 0],0xff0000,0x00ff00,0x00ff00],
+			[[ .1,-.1,-1],[ .1, .1,-1],[ .1, .1, 0],0xff0000,0xff0000,0x00ff00],
+			[[-.1, .1,-1],[ .1, .1, 0],[-.1, .1, 0],0xff0000,0x00ff00,0x00ff00],
+			[[-.1, .1,-1],[ .1, .1,-1],[ .1, .1, 0],0xff0000,0xff0000,0x00ff00],
+			[[-.1,-.1,-1],[-.1, .1, 0],[-.1,-.1, 0],0xff0000,0x00ff00,0x00ff00],
+			[[-.1,-.1,-1],[-.1, .1,-1],[-.1, .1, 0],0xff0000,0xff0000,0x00ff00],
+			[[-.1,-.1,-1],[ .1,-.1, 0],[-.1,-.1, 0],0xff0000,0x00ff00,0x00ff00],
+			[[-.1,-.1,-1],[ .1,-.1,-1],[ .1,-.1, 0],0xff0000,0xff0000,0x00ff00],
+			[[ .1,-.1, 0],[ .1, .1, 0],[-.1,-.1, 0],0x00ff00,0x00ff00,0x00ff00],
+			[[-.1,-.1, 0],[ .1, .1, 0],[-.1, .1, 0],0x00ff00,0x00ff00,0x00ff00],
+			[[-.1,-.1,-1],[ .1, .1,-1],[ .1,-.1,-1],0xff0000,0xff0000,0xff0000],
+			[[-.1, .1,-1],[ .1, .1,-1],[-.1,-.1,-1],0xff0000,0xff0000,0xff0000]);
 		var kaki_bawah=new Node(
-			[[ .1,-.1, 0],[ .1, .1, 0],[ .1,-.1,-1],0x0f0,0x0f0,0x0f0],
-			[[ .1,-.1,-1],[ .1, .1,-1],[ .1, .1, 0],0x0f0,0x0f0,0x0f0],
-			[[-.1, .1, 0],[ .1, .1, 0],[-.1, .1,-1],0xff0,0xff0,0xff0],
-			[[-.1, .1,-1],[ .1, .1,-1],[ .1, .1, 0],0xff0,0xff0,0xff0],
-			[[-.1,-.1, 0],[-.1, .1, 0],[-.1,-.1,-1],0x00f,0x00f,0x00f],
-			[[-.1,-.1,-1],[-.1, .1,-1],[-.1, .1, 0],0x00f,0x00f,0x00f],
-			[[-.1,-.1, 0],[ .1,-.1, 0],[-.1,-.1,-1],0xf00,0xf00,0xf00],
-			[[-.1,-.1,-1],[ .1,-.1,-1],[ .1,-.1, 0],0xf00,0xf00,0xf00],
-			[[-.1,-.1, 0],[ .1, .1, 0],[ .1,-.1, 0],0xf0f,0xf0f,0xf0f],
-			[[-.1,-.1, 0],[ .1, .1, 0],[-.1, .1, 0],0xf0f,0xf0f,0xf0f],
-			[[-.1,-.1,-1],[ .1, .1,-1],[ .1,-.1,-1],0xf0f,0xf0f,0xf0f],
-			[[-.1,-.1,-1],[ .1, .1,-1],[-.1, .1,-1],0xf0f,0xf0f,0xf0f]);
+			[[ .1,-.1,-1],[ .1, .1, 0],[ .1,-.1, 0],0x0000ff,0xff0000,0xff0000],
+			[[ .1,-.1,-1],[ .1, .1,-1],[ .1, .1, 0],0x0000ff,0x0000ff,0xff0000],
+			[[-.1, .1,-1],[ .1, .1, 0],[-.1, .1, 0],0x0000ff,0xff0000,0xff0000],
+			[[-.1, .1,-1],[ .1, .1,-1],[ .1, .1, 0],0x0000ff,0x0000ff,0xff0000],
+			[[-.1,-.1,-1],[-.1, .1, 0],[-.1,-.1, 0],0x0000ff,0xff0000,0xff0000],
+			[[-.1,-.1,-1],[-.1, .1,-1],[-.1, .1, 0],0x0000ff,0x0000ff,0xff0000],
+			[[-.1,-.1,-1],[ .1,-.1, 0],[-.1,-.1, 0],0x0000ff,0xff0000,0xff0000],
+			[[-.1,-.1,-1],[ .1,-.1,-1],[ .1,-.1, 0],0x0000ff,0x0000ff,0xff0000],
+			[[ .1,-.1, 0],[ .1, .1, 0],[-.1,-.1, 0],0xff0000,0xff0000,0xff0000],
+			[[-.1,-.1, 0],[ .1, .1, 0],[-.1, .1, 0],0xff0000,0xff0000,0xff0000],
+			[[-.1,-.1,-1],[ .1, .1,-1],[ .1,-.1,-1],0x0000ff,0x0000ff,0x0000ff],
+			[[-.1, .1,-1],[ .1, .1,-1],[-.1,-.1,-1],0x0000ff,0x0000ff,0x0000ff]);
+		sumber_cahaya=[10,15,20];
 		kaki_bawah.apply_init_transformation(translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],0,0,-1));
 		kaki_bawah.apply_init_transformation(rotateY([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/4.0));
 		kaki_atas.apply_init_transformation(rotateY([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/4.0));
@@ -489,7 +504,7 @@
 			translate(mov_matrix,Tx,Ty,Tz);
 			gl.enable(gl.DEPTH_TEST);
 			gl.depthFunc(gl.LEQUAL);
-			gl.clearColor(0.7,0.7,0.7,0.9);
+			gl.clearColor(0.0,0.0,0.0,1.0);
 			gl.clearDepth(1.0);
 			gl.viewport(0.0,0.0,canvas.width, canvas.height);
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
