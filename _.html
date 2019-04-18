@@ -319,31 +319,42 @@
 			       P3[0],P3[1],P3[2],0,
 			       0,0,0,1];
 		}
-		var sumber_cahaya;
-		
-		function segitiga(matrix,P1,P2,P3,C1,C2,C3)
+		var sumber_cahaya=[1,2,3];
+		var node_cahaya;
+		function hitung_intensitas(norm,P)
+		{
+			var arah_sinar=sub(sumber_cahaya,P);
+			var intensitas=dot(norm,normal(arah_sinar));
+			if(intensitas<0.1)intensitas=0.1;
+			return intensitas;
+		}
+		function segitiga(matrix,P1,P2,P3,C1,C2,C3,pakai_pencahayaan=1)
 		{
 			var mov_matrix=matmul(matrix,matpos(P1,P2,P3));
 			gl.uniformMatrix4fv(Pmatrix,false,proj_matrix);
 			gl.uniformMatrix4fv(Vmatrix,false,view_matrix);
 			gl.uniformMatrix4fv(Mmatrix,false,mov_matrix);
 
-			var A1=mov_matrix.slice(0,3);
-			var A2=mov_matrix.slice(4,7);
-			var A3=mov_matrix.slice(8,11);
-			var norm=normal(cross(sub(A2,A1),sub(A3,A1)));
-			var P=[(A1[0]+A2[0]+A3[0])/3,(A1[1]+A2[1]+A3[1])/3,(A1[2]+A2[2]+A3[2])/3];
-			var arah_sinar=sub(sumber_cahaya,P);
-			var intensitas=dot(norm,normal(arah_sinar));
-			if(intensitas<0.1)intensitas=0.1;
+			var Intensitas=[];
+			if(pakai_pencahayaan)
+			{
+				var A1=mov_matrix.slice(0,3);
+				var A2=mov_matrix.slice(4,7);
+				var A3=mov_matrix.slice(8,11);
+				var norm=normal(cross(sub(A2,A1),sub(A3,A1)));
+				Intensitas.push(hitung_intensitas(norm,A1));
+				Intensitas.push(hitung_intensitas(norm,A2));
+				Intensitas.push(hitung_intensitas(norm,A3));
+			}
+			else Intensitas=[1,1,1];
 
 			var C=[C1,C2,C3];
 			var warna=[]
 			for(var i=-1;++i<C.length;)
 			{
-				warna.push((C[i]>>16&255)/255.0*intensitas);
-				warna.push((C[i]>>8&255)/255.0*intensitas);
-				warna.push((C[i]&255)/255.0*intensitas);
+				warna.push((C[i]>>16&255)/255.0*Intensitas[i]);
+				warna.push((C[i]>>8&255)/255.0*Intensitas[i]);
+				warna.push((C[i]&255)/255.0*Intensitas[i]);
 			}
 			gl.bindBuffer(gl.ARRAY_BUFFER,posisi_buf);
 			gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([1,0,0,0,1,0,0,0,1]),gl.STATIC_DRAW);
@@ -389,7 +400,7 @@
 		
 				return ret;
 			}
-			this.draw=function(cur_mat)
+			this.draw=function(cur_mat,pakai_pencahayaan=1)
 			{
 				var tmp_mat=matmul(matmul(cur_mat,this.init_mat),this.transform_mat);
 				for(var i=-1;++i<this.dat.length;)
@@ -400,7 +411,8 @@
 						this.dat[i][2],
 						this.dat[i][3],
 						this.dat[i][4],
-						this.dat[i][5]);
+						this.dat[i][5],
+						pakai_pencahayaan);
 				}
 				var cuinv_mat=matmul(tmp_mat,this.init_inv_mat);
 				for(var i=-1;++i<this.link.length;)
@@ -502,8 +514,13 @@
 			[[-.1,-.1, 0],[ .1, .1, 0],[-.1, .1, 0],0xff0000,0xff0000,0xff0000],
 			[[-.1,-.1,-1],[ .1, .1,-1],[ .1,-.1,-1],0xffffff,0xffffff,0xffffff],
 			[[-.1, .1,-1],[ .1, .1,-1],[-.1,-.1,-1],0xffffff,0xffffff,0xffffff]);
-		
-		sumber_cahaya=[10,15,20];
+		node_cahaya=new Node(
+			[[ 0,0,0],[.1, 0, 0],[ 0,0,.1],0xffffff,0xffffff,0xffffff],
+			[[ 0,0,0],[ 0,.1, 0],[ 0,0,.1],0xffffff,0xffffff,0xffffff],
+			[[ 0,0,0],[ 0,.1, 0],[.1,0, 0],0xffffff,0xffffff,0xffffff],
+			[[.1,0,0],[ 0,.1, 0],[ 0,0,.1],0xffffff,0xffffff,0xffffff]);
+		node_cahaya.apply_init_transformation(translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],sumber_cahaya[0],sumber_cahaya[1],sumber_cahaya[2]));
+
 		kaki_bawah.apply_init_transformation(translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],0,0,-1));
 		kaki_bawah.apply_init_transformation(rotateY([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/4.0));
 		kaki_atas.apply_init_transformation(rotateY([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/4.0));
@@ -530,7 +547,7 @@
 
 		var animate = function(time) {
 			if(move){dt+=(time-old_time)*0.0001;}
-			// dbg.innerHTML=Math.floor(time);
+			//dbg.innerHTML=Math.floor(time);
 			old_time=time;
 			for(var i=-1;++i<root.link.length;)
 			{
@@ -569,6 +586,7 @@
 				[0,0,0],
 				moveCam(UP[prev_lookX][prev_lookY],UP[lookX][lookY]));
 			root.draw(mov_matrix);
+			node_cahaya.draw([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],false);
 			window.requestAnimationFrame(animate);
 		}
 		animate(0);
