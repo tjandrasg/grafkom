@@ -319,7 +319,7 @@
 			       P3[0],P3[1],P3[2],0,
 			       0,0,0,1];
 		}
-		var sumber_cahaya=[1,2,3];
+		var sumber_cahaya=[1,2,0];
 		var node_cahaya;
 		function hitung_intensitas(norm,P)
 		{
@@ -338,9 +338,10 @@
 			var Intensitas=[];
 			if(pakai_pencahayaan)
 			{
-				var A1=mov_matrix.slice(0,3);
-				var A2=mov_matrix.slice(4,7);
-				var A3=mov_matrix.slice(8,11);
+				var diff=[-mov_matrix[12],-mov_matrix[13],-mov_matrix[14]];
+				var A1=sub(mov_matrix.slice(0,3) ,diff);
+				var A2=sub(mov_matrix.slice(4,7) ,diff);
+				var A3=sub(mov_matrix.slice(8,11),diff);
 				var norm=normal(cross(sub(A2,A1),sub(A3,A1)));
 				Intensitas.push(hitung_intensitas(norm,A1));
 				Intensitas.push(hitung_intensitas(norm,A2));
