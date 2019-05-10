@@ -17,7 +17,9 @@
 		<p id="debug"></p>
 		<br>
 		<div class="container">
-			<div>
+				<img id = "texImage" src = "brick.jpg" hidden></img>
+				<img id = "texImage1" src = "SA2011_black.gif" hidden></img>
+				<div>
 				<h1>Camera option</h1>
 				<button id = "ButtonUp">Up</button>
 				<br/>
@@ -31,28 +33,45 @@
 		</div>
 	<script id="vertex-shader" type="x-shader/x-vertex">
 		attribute vec3 position;
+		attribute  vec2 vTexCoord;
+
 		uniform mat4 Pmatrix;
 		uniform mat4 Vmatrix;
 		uniform mat4 Mmatrix;
+
 		attribute vec3 color;
 		varying vec3 vColor;
+
+		varying vec2 fTexCoord;
+		
+		
 		void main(void)
 		{
 			gl_Position = Pmatrix*Vmatrix*Mmatrix*vec4(position, 1.);
+			fTexCoord = vTexCoord;
 			vColor = color;
 		}
 	</script>
 	<script id="fragment-shader" type="x-shader/x-fragment">
 		precision mediump float;
 		varying vec3 vColor;
+
+		varying  vec2 fTexCoord;
+
+		uniform sampler2D texture;
+
 		void main(void)
 		{
-			gl_FragColor = vec4(vColor, 1.);
+			gl_FragColor = vec4(vColor, 1.) * texture2D(texture, fTexCoord);
 		}
 	</script>
 	<script id="main-program" type="text/javascript">
 		var dbg=document.getElementById('debug');
 		var canvas=document.getElementById('my_canvas');
+
+		var texCoordsArray_kepala = [];
+		var texCoordsArray_kaki = [];
+		var texCoordsArray_dinding = [];
 
 		/*=================== Initialization =========================*/
 		gl=canvas.getContext('webgl');
@@ -84,6 +103,26 @@
 		gl.vertexAttribPointer(warna_ptr,3,gl.FLOAT,false,0,0);
 		gl.enableVertexAttribArray(warna_ptr);
 		gl.useProgram(shader_prog);
+
+		var vTexCoord = gl.getAttribLocation( shader_prog, "vTexCoord" );
+    gl.vertexAttribPointer( vTexCoord, 2, gl.FLOAT, false, 0, 0 );
+		gl.enableVertexAttribArray( vTexCoord );
+
+
+		var textureIndex = 0;
+		function configureTexture( image ) {
+			texture = gl.createTexture();
+			gl.bindTexture( gl.TEXTURE_2D, texture );
+			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+			gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGB,
+					gl.RGB, gl.UNSIGNED_BYTE, image );
+			gl.generateMipmap( gl.TEXTURE_2D );
+			gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+												gl.NEAREST_MIPMAP_LINEAR );
+			gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST );
+
+			gl.uniform1i(gl.getUniformLocation(shader_prog, "texture"), 0);
+		}
 		
 		/*==================== Transformation Function ====================*/
 		function get_projection(angle,a,zMin,zMax)
@@ -363,6 +402,8 @@
 			gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(warna),gl.STATIC_DRAW);
 			gl.drawArrays(gl.TRIANGLES,0,3);
 		}
+
+		var xxx = 'xxxxx';
 		
 		/*================= Object ===========================*/
 		function Node()
@@ -372,11 +413,19 @@
 			this.init_inv_mat=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
 			this.transform_mat=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
 			this.dat=[];
+			this.type = "";
+
 			for(var i=-1;++i<arguments.length;)
 			{
 				//dbg.innerHTML=arguments.length
-				this.dat.push(arguments[i])
+				if (i !== arguments.length-1) {
+					this.dat.push(arguments[i])
+				} else {
+					var a = this.type;
+					this.type = arguments[i];
+				}
 			}
+
 			this.copy=function(recurring=1)
 			{
 				var ret=new Node();
@@ -391,6 +440,7 @@
 				ret.init_mat=this.init_mat.slice();
 				ret.init_inv_mat=this.init_inv_mat.slice();
 				ret.transform_mat=this.transform_mat.slice();
+				ret.type = this.type;
 				for(var i=-1;++i<this.link.length;)
 				{
 					if(recurring)
@@ -401,11 +451,32 @@
 		
 				return ret;
 			}
+
 			this.draw=function(cur_mat,pakai_pencahayaan=1)
 			{
 				var tmp_mat=matmul(matmul(cur_mat,this.init_mat),this.transform_mat);
 				for(var i=-1;++i<this.dat.length;)
 				{
+					if (this.type == "kepala") {
+						texCoordsArray_kepala.push(
+							this.dat[i][0][1],this.dat[i][0][2],
+							this.dat[i][1][1],this.dat[i][1][2],
+							this.dat[i][2][1],this.dat[i][2][2],
+						)
+					} else if (this.type == "kaki") {
+						texCoordsArray_kaki.push(
+							this.dat[i][0][1],this.dat[i][0][2],
+							this.dat[i][1][1],this.dat[i][1][2],
+							this.dat[i][2][1],this.dat[i][2][2],
+						)
+					} else if (this.type == "dinding") {
+						texCoordsArray_dinding.push(
+							this.dat[i][0][1],this.dat[i][0][2],
+							this.dat[i][1][1],this.dat[i][1][2],
+							this.dat[i][2][1],this.dat[i][2][2],
+						)
+					}
+					
 					segitiga(tmp_mat,
 						this.dat[i][0],
 						this.dat[i][1],
@@ -421,27 +492,33 @@
 					this.link[i].draw(cuinv_mat);
 				}
 			}
+			
 			this.link_object=function(O)
 			{
 				this.link.push(O);
 			}
+			
 			this.insert_segitiga=function(P1,P2,P3,C1,C2,C3)
 			{
 				this.dat.push([P1,P2,P3,C1,C2,C3]);
 			}
+			
 			this.apply_transformation=function(mat)
 			{
 				this.transform_mat=matmul(mat,this.transform_mat);
 			}
+			
 			this.edit_init_mat=function(mat)
 			{
 				this.init_mat=mat.slice();
 				this.init_inv_mat=matinv(mat);
 			}
+			
 			this.apply_init_transformation=function(mat)
 			{
 				this.edit_init_mat(matmul(mat,this.init_mat));
 			}
+			
 			this.reset_transformation=function(recurring=1)
 			{
 				this.transform_mat=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
@@ -453,6 +530,7 @@
 					}
 				}
 			}
+			
 			this.set_warna=function(C1,C2,C3,recurring=0)
 			{
 				for(var i=-1;++i<this.dat.length;)
@@ -488,7 +566,8 @@
 			[[-1, 1,0],[-1,-1,0],[0,0,1],0x00ff00,0x00ff00,0xffff00],
 			[[-1,-1,0],[ 1,-1,0],[0,0,1],0x00ff00,0x00ff00,0xffff00],
 			[[-1,-1,0],[ 1, 1,0],[ 1,-1,0],0x00ffff,0x00ffff,0x00ffff],
-			[[-1, 1,0],[ 1, 1,0],[-1,-1,0],0x00ffff,0x00ffff,0x00ffff]);
+			[[-1, 1,0],[ 1, 1,0],[-1,-1,0],0x00ffff,0x00ffff,0x00ffff],
+			"kepala");
 		var kaki_atas=new Node(
 			[[ .1,-.1,-1],[ .1, .1, 0],[ .1,-.1, 0],0xff0000,0x00ff00,0x00ff00],
 			[[ .1,-.1,-1],[ .1, .1,-1],[ .1, .1, 0],0xff0000,0xff0000,0x00ff00],
@@ -501,7 +580,8 @@
 			[[ .1,-.1, 0],[ .1, .1, 0],[-.1,-.1, 0],0x00ff00,0x00ff00,0x00ff00],
 			[[-.1,-.1, 0],[ .1, .1, 0],[-.1, .1, 0],0x00ff00,0x00ff00,0x00ff00],
 			[[-.1,-.1,-1],[ .1, .1,-1],[ .1,-.1,-1],0xff0000,0xff0000,0xff0000],
-			[[-.1, .1,-1],[ .1, .1,-1],[-.1,-.1,-1],0xff0000,0xff0000,0xff0000]);
+			[[-.1, .1,-1],[ .1, .1,-1],[-.1,-.1,-1],0xff0000,0xff0000,0xff0000],
+			"kaki");
 		var kaki_bawah=new Node(
 			[[ .1,-.1,-1],[ .1, .1, 0],[ .1,-.1, 0],0x0000ff,0xff0000,0xff0000],
 			[[ .1,-.1,-1],[ .1, .1,-1],[ .1, .1, 0],0x0000ff,0x0000ff,0xff0000],
@@ -514,12 +594,35 @@
 			[[ .1,-.1, 0],[ .1, .1, 0],[-.1,-.1, 0],0xff0000,0xff0000,0xff0000],
 			[[-.1,-.1, 0],[ .1, .1, 0],[-.1, .1, 0],0xff0000,0xff0000,0xff0000],
 			[[-.1,-.1,-1],[ .1, .1,-1],[ .1,-.1,-1],0xffffff,0xffffff,0xffffff],
-			[[-.1, .1,-1],[ .1, .1,-1],[-.1,-.1,-1],0xffffff,0xffffff,0xffffff]);
+			[[-.1, .1,-1],[ .1, .1,-1],[-.1,-.1,-1],0xffffff,0xffffff,0xffffff],
+			"kaki");
 		node_cahaya=new Node(
-			[[ 0,0,0],[.1, 0, 0],[ 0,0,.1],0xffffff,0xffffff,0xffffff],
-			[[ 0,0,0],[ 0,.1, 0],[ 0,0,.1],0xffffff,0xffffff,0xffffff],
-			[[ 0,0,0],[ 0,.1, 0],[.1,0, 0],0xffffff,0xffffff,0xffffff],
-			[[.1,0,0],[ 0,.1, 0],[ 0,0,.1],0xffffff,0xffffff,0xffffff]);
+			[[ 0,0,0],[.1, 0, 0],[ 0,0,.1],0x00ffff,0x00ffff,0x00ffff],
+			[[ 0,0,0],[ 0,.1, 0],[ 0,0,.1],0x00ffff,0x00ffff,0x00ffff],
+			[[ 0,0,0],[ 0,.1, 0],[.1,0, 0],0x00ffff,0x00ffff,0x00ffff],
+			[[.1,0,0],[ 0,.1, 0],[ 0,0,.1],0x00ffff,0x00ffff,0x00ffff],
+			"cahaya");
+
+		dindingTengah = new Node(
+			[[-5,-3,-3],[-5,-3,3],[-5,3,3,],0x00ffff,0x00ffff,0x00ffff],
+			[[-5,3,3],[-5,-3,-3],[-5,3,-3],0x00ffff,0x00ffff,0x00ffff],
+			"dinding"
+		);
+		dindingKanan = new Node(
+			[[-5,3,-3],[-5,3,3],[10,3,3],0xf1f12ff,0xf1f12ff,0xf1f12ff],
+			[[10,3,3],[-5,3,-3],[10,3,-3],0xf1f12ff,0xf1f12ff,0xf1f12ff],
+			"dinding"
+		);
+		dindingKiri = new Node(
+			[[-5,-3,-3],[-5,-3,3],[10,-3,3],0xff00ff,0xff00ff,0xff00ff],
+			[[10,-3,3],[-5,-3,-3],[10,-3,-3],0xff00ff,0xff00ff,0xff00ff],
+			"dinding"
+		);
+		dindingBawah = new Node(
+			[[-5,-3,-3],[-5,3,-3],[10,3,-3],0xffff00,0xffff00,0xffff00],
+			[[10,3,-3],[-5,-3,-3],[10,-3,-3],0xffff00,0xffff00,0xffff00],
+			"dinding"
+		);
 		node_cahaya.apply_init_transformation(translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],sumber_cahaya[0],sumber_cahaya[1],sumber_cahaya[2]));
 
 		kaki_bawah.apply_init_transformation(translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],0,0,-1));
@@ -545,7 +648,24 @@
 		kaki_bawah.apply_init_transformation(rotateZ([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],-Math.PI/2.0001));
 		kepala.link.push(kaki_atas);
 		root=kepala.copy();
+		
+    // Initialize a texture
+    
+		var image = document.getElementById("texImage");
+		var image1 = document.getElementById("texImage1");		
+		
+		// var tBuffer = gl.createBuffer();
+		// gl.bindBuffer( gl.ARRAY_BUFFER, tBuffer );
+    // gl.bufferData( gl.ARRAY_BUFFER, new Float32Array(texCoordsArray_kepala), gl.STATIC_DRAW );
+		
+		// configureTexture( image );
+		
+		// gl.bufferData( gl.ARRAY_BUFFER, new Float32Array(texCoordsArray_dinding), gl.STATIC_DRAW );
+		configureTexture(image)
 
+		    
+
+		
 		var animate = function(time) {
 			if(move){dt+=(time-old_time)*0.0001;}
 			//dbg.innerHTML=Math.floor(time);
@@ -586,8 +706,17 @@
 				moveCam(EYE[prev_lookX][prev_lookY],EYE[lookX][lookY]),
 				[0,0,0],
 				moveCam(UP[prev_lookX][prev_lookY],UP[lookX][lookY]));
-			root.draw(mov_matrix);
-			node_cahaya.draw([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],false);
+
+				configureTexture(image1)
+				root.draw(mov_matrix);
+				
+				node_cahaya.draw([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],false);
+				
+				configureTexture(image)
+			dindingTengah.draw([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1], false);
+			dindingKanan.draw([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1], false);
+			dindingKiri.draw([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1], false);
+			dindingBawah.draw([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1], false);
 			window.requestAnimationFrame(animate);
 		}
 		animate(0);
