@@ -9,7 +9,7 @@
 		<link rel="stylesheet" href="style.css">
 	</head>	
   <body>
-		<h1>bunGLon Worksheet-2</h1>
+		<h1>Tugas Proyek bunGLon</h1>
 		<h3>Contributors:</h3>
 		<p>1706124176 - Tjandra Satria Gunawan</p>
 		<p>1606917696 - Kevin Prakasa</p>
@@ -17,9 +17,9 @@
 		<p id="debug"></p>
 		<br>
 		<div class="container">
-				<img id = "texImage" src = "brick.jpg" hidden></img>
-				<img id = "texImage1" src = "SA2011_black.gif" hidden></img>
-				<div>
+			<img id = "texImage" src = "brick.jpg" hidden></img>
+			<img id = "texImage1" src = "SA2011_black.gif" hidden></img>
+			<div>
 				<h1>Camera option</h1>
 				<button id = "ButtonUp">Up</button>
 				<br/>
@@ -29,6 +29,11 @@
 				<br/>
 				<button id = "ButtonToogle">Toogle Movement (0)</button>
 				<button id = "toggleWireframe">Toggle Wireframe (1)</button>
+				<br/>
+				<span id="demoLabel">Demo Mode</span>
+				<button id = "toggleDemo">Toggle Mode (m)</button>
+				<br/>
+				<span id="interactiveCommandTooltip"></span>
 			</div>
 			<canvas width="570" height="570" id="my_canvas"></canvas>
 		</div>
@@ -190,7 +195,37 @@
 		
 			return m;
 		}
-		
+
+		/*================= obj move functions ===========================*/
+		function moveObjUp(object) {
+			/*translate object upwards*/	
+			console.log(object.transform_mat);
+			
+			object.transform_mat=translate(object.transform_mat,0,0,0.5);
+		}
+
+		function moveObjDown(object) {
+			/*translate object downwards*/	
+			// console.log(object.transform_mat);
+			
+			object.transform_mat=translate(object.transform_mat,0,0,-0.5);
+		}
+
+		function moveObjLeft(object) {
+			/*translate object Leftwards*/	
+			// console.log(object.transform_mat);
+			
+			object.transform_mat=translate(object.transform_mat,0,-0.5,0);
+		}
+
+		function moveObjRight(object) {
+			/*translate object Rightwards*/	
+			// console.log(object.transform_mat);
+			
+			object.transform_mat=translate(object.transform_mat,0,0.5,0);
+		}
+
+
 		/*================= lookAt implementation ===========================*/
 		function neg(A)
 		{
@@ -274,14 +309,25 @@
 		var funcDown=function(){if(lookX<4){update();++lookX;}};
 		var funcToogle=function(){move=!move;};
 		var funcToggleWireframe=function(){isWireframe=!isWireframe;};
+		var funcToggleDemo=function(){
+			isDemo = !isDemo;
+			if(isDemo) {
+				document.getElementById("demoLabel").innerHTML="Demo Mode";
+				document.getElementById("interactiveCommandTooltip").innerHTML="";
+			} else {
+				document.getElementById("demoLabel").innerHTML="Interactive Mode";
+				document.getElementById("interactiveCommandTooltip").innerHTML="Gunakan W,A,S,D untuk menggerakan objek!";
+			}
+		};
 		var keyFunc=function(event){
-			event=event?event:window.event;
+			event=event?event:window.event;			
 			if(event.key=='ArrowUp'){funcUp();}
 			if(event.key=='ArrowLeft'){funcLeft();}
 			if(event.key=='ArrowRight'){funcRight();}
 			if(event.key=='ArrowDown'){funcDown();}
 			if(event.key=='0'){funcToogle();}
 			if(event.key=='1'){funcToggleWireframe();}
+			if(event.key.toLowerCase()=='m'){funcToggleDemo();}
 		}
 		document.getElementById("ButtonUp").onclick=funcUp;
 		document.getElementById("ButtonLeft").onclick=funcLeft;
@@ -289,6 +335,7 @@
 		document.getElementById("ButtonDown").onclick=funcDown;
 		document.getElementById("ButtonToogle").onclick=funcToogle;
 		document.getElementById("toggleWireframe").onclick=funcToggleWireframe;
+		document.getElementById("toggleDemo").onclick=funcToggleDemo;
 		document.onkeydown=keyFunc;
 		
 		/*================= Drawing ===========================*/
@@ -420,12 +467,12 @@
 			this.transform_mat=[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
 			this.dat=[];
 			this.type = "";
-			this.renderType = "";
+			this.renderType = ""; //variable determining which draw option -> gl.triangles or gl.lines
 			
 			for(var i=-1;++i<arguments.length;)
 			{
 				if (i === 0) {
-					this.renderType = arguments[i];
+					this.renderType = arguments[i]; // assign arguments as object attribute
 				}				
 				//dbg.innerHTML=arguments.length
 				if (i !== arguments.length-1 && i !== 0) {
@@ -573,7 +620,8 @@
 		var old_time=0;
 		var dt=0;
 		var isWireframe = false;
-		
+		var isDemo = true;
+
 		function moveCam(A,B){
 			var progress=(old_time-last_changed)*0.005;
 			if(progress>1)progress=1;
@@ -709,7 +757,27 @@
 				root.link[i].link[0].renderType=isWireframe ? "wireframe":"segitiga";
 
 			}
-			root.transform_mat=translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],0,0,Math.cos(time*0.003));
+			if(isDemo) {
+				root.transform_mat=translate([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],0,0,Math.cos(time*0.003));
+			} else {
+				/*handle interactive mode*/
+				document.onkeypress = function(event) {
+					switch(event.key.toLowerCase()) {
+						case "w":
+							moveObjUp(root);
+							break;
+						case "s":
+							moveObjDown(root);
+							break;
+						case "a":
+							moveObjLeft(root);
+							break;
+						case "d":
+							moveObjRight(root);
+							break;
+					}
+				}
+			}
 			rotateZ(root.transform_mat,time*0.001);
 			var phs=(dt-Math.floor(dt))*9;
 			var Tx=0;
